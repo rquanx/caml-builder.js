@@ -1,13 +1,11 @@
-let CamlEnum = {};
-
 /** 逻辑选项 */
-CamlEnum.LogicType = {
+export const LogicType = {
     And: "And",
     Or: "Or"
 }
 
 /** 关系选项 */
-CamlEnum.RelationType = {
+export const RelationType = {
     In: "In",
     Eq: "Eq",
     Gt: "Gt",
@@ -36,7 +34,7 @@ CamlEnum.RelationType = {
 };
 
 /** 数据类型选项 */
-CamlEnum.ValueType = {
+export const ValueType = {
     Text: "Text",
     Number: "Number",
     DateTime: "DateTime", // yyyy-MM-ddTHH:mm:ss
@@ -54,7 +52,7 @@ CamlEnum.ValueType = {
 };
 
 /** 标签选项 */
-CamlEnum.TagType = {
+export const TagType = {
     Aggregations: "Aggregations",
     Field: "Field",
     FieldRef: "FieldRef",
@@ -87,7 +85,7 @@ CamlEnum.TagType = {
 };
 
 /** 处理函数选项 */
-CamlEnum.AggregationsType = {
+export const AggregationsType = {
     Count: "COUNT", // 计数
     Average: "AVG", // 取平均值
     Maximum: "MAX", // 取最大值
@@ -98,19 +96,28 @@ CamlEnum.AggregationsType = {
 };
 
 /** 范围选项 */
-CamlEnum.ScopeType = {
+export const ScopeType = {
     FilesOnly: "FilesOnly",
     Recursive: "Recursive",
     RecursiveAll: "RecursiveAll"
 }
 
-CamlEnum.Value = {
+export const Value = {
     None: ""
 }
 
-CamlEnum.Boolean = {
+export const Boolean = {
     True: "True",
     False: "False"
 }
-
+let CamlEnum = {
+    Boolean,
+    Value,
+    ScopeType,
+    AggregationsType,
+    TagType,
+    ValueType,
+    RelationType,
+    LogicType
+}
 export default CamlEnum;

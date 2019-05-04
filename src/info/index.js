@@ -1,5 +1,7 @@
 import XmlBuilder from "../xml/index";
-import CamlEnum from "../builder/enum";
+import {
+    TagType
+} from "../builder/enum";
 
 'use strict';
 class CamlInfo {
@@ -31,7 +33,7 @@ class CamlInfo {
             this.Joins = "";
             this.Aggregations = "";
             this.FolderStr = "";
-            this.View = new XmlBuilder(CamlEnum.TagType.View, "", "");
+            this.View = new XmlBuilder(TagType.View, "", "");
         }
     }
 

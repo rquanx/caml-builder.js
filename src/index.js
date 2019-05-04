@@ -1,8 +1,5 @@
-import CamlBuilderImport from "./builder/index";
-import CamlEnumImport from "./builder/enum";
+import Enum from "./builder/enum";
+import CamlBuilder from "./builder/index";
 
-export var CamlBuilder = CamlBuilderImport;
-export var CamlEnum = CamlEnumImport;
-
-
+export const CamlEnum = Enum;
 export default CamlBuilder;

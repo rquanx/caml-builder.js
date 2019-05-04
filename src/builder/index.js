@@ -3,6 +3,7 @@ import CamlInfo from "../info/index";
 import CamlEnum from "./enum";
 import Aggregations from "../modal/Aggregations";
 
+
 /** @constructor */
 let CamlBuilder = function () {
     this.CamlInfo = new CamlInfo();
