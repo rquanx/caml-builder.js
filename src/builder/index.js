@@ -2,6 +2,7 @@ import XmlBuilder from "../xml/index";
 import CamlInfo from "../info/index";
 import CamlEnum from "./enum";
 import Aggregations from "../modal/Aggregations";
+import { getCamlDateTime } from "../helper/index";
 
 
 /** @constructor */
@@ -78,13 +79,16 @@ CamlBuilder.CaseValueType = function (valueType, value) {
         case CamlEnum.ValueType.DateTime:
             {
                 property.IncludeTimeValue = CamlEnum.Boolean.True;
+                if (typeof value === "object") {
+                    value = getCamlDateTime(value);
+                }
                 break;
             }
         case CamlEnum.ValueType.Date:
             {
                 property.Type = CamlEnum.ValueType.DateTime;
-                if (typeof value === "object" && value.toISOString) {
-                    value = value.toISOString();
+                if (typeof value === "object") {
+                    value = getCamlDateTime(value);
                 }
                 break;
             }
