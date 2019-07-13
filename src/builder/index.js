@@ -323,7 +323,7 @@ CamlBuilder.prototype.End = function () {
  * @return {string} caml字符串
  */
 CamlBuilder.prototype.ToString = function () {
-    return this.CamlInfo.Condition.CreateElement ? this.CamlInfo.Condition.CreateElement() : XmlBuilder.renderChildren(this.CamlInfo.Condition);
+    return this.CamlInfo.Condition.CreateElement ? this.CamlInfo.Condition.CreateElement() : XmlBuilder.RenderChildren(this.CamlInfo.Condition);
 };
 
 /**

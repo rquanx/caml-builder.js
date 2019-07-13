@@ -25,13 +25,13 @@ declare class XmlBuilder {
      * 拼接属性字符串
      * @param  property
      */
-    static renderProps(property: string | Object): string;
+    static RenderProps(property: string | Object): string;
 
     /**
     * 拼接子元素字符串
     * @param children
     */
-    static renderChildren(children: any): string;
+    static RenderChildren(children: any): string;
 
 
     /**

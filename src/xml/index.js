@@ -28,9 +28,9 @@ class XmlBuilder {
  */
 XmlBuilder.CreateElement = function (tagName, property, children) {
     let result = "";
-    let propertyStr = XmlBuilder.renderProps(property);
+    let propertyStr = XmlBuilder.RenderProps(property);
     if (children || children === 0) {
-        let childrenStr = XmlBuilder.renderChildren(children);
+        let childrenStr = XmlBuilder.RenderChildren(children);
         result = XmlBuilder.Tag(tagName, propertyStr, childrenStr);
     } else {
         result = XmlBuilder.AutoCloseTag(tagName, propertyStr);
@@ -42,7 +42,7 @@ XmlBuilder.CreateElement = function (tagName, property, children) {
  * 拼接属性字符串
  * @param {string | Object} property
  */
-XmlBuilder.renderProps = function (property) {
+XmlBuilder.RenderProps = function (property) {
     let propertyStr = ""
     if (property) {
         if (typeof (property) === "string") {
@@ -60,12 +60,12 @@ XmlBuilder.renderProps = function (property) {
  * 递归拼接子元素
  * @param {any} children
  */
-XmlBuilder.renderChildren = function (children) {
+XmlBuilder.RenderChildren = function (children) {
     let childrenStr = "";
     if (Array.isArray(children)) {
         children.forEach((item) => {
             if (Array.isArray(item)) {
-                childrenStr += XmlBuilder.renderChildren(item);
+                childrenStr += XmlBuilder.RenderChildren(item);
             } else if (typeof (item) === "object") {
                 childrenStr += XmlBuilder.CreateElement(item.tagName, item.property, item.children)
             } else if (typeof (item) === "string") {
