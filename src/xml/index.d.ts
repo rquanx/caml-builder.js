@@ -37,17 +37,10 @@ declare class XmlBuilder {
     /**
      * 普通标签
      * @param tagName 
-     * @param propertyStr
-     * @param childrenStr
+     * @param property
+     * @param children
      */
-    static Tag(tagName: string, propertyStr: string, childrenStr: string): string;
-
-    /**
-     * 自闭标签
-     * @param  tagName 
-     * @param propertyStr
-     */
-    static AutoCloseTag(tagName: string, propertyStr: string): string;
+    static Tag(tagName: string, property: string, children: string): string;
 
     /**
      * 标签属性

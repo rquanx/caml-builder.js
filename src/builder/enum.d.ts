@@ -1,11 +1,11 @@
 /** 逻辑选项 */
-export enum LogicType {
+export enum Logic {
     And = "And",
     Or = "Or"
 }
 
 /** 关系选项 */
-export enum RelationType {
+export enum Relation {
     In = "In",
     Eq = "Eq",
     Gt = "Gt",
@@ -50,7 +50,7 @@ export enum ValueType {
 }
 
 /** 标签选项 */
-export enum TagType {
+export enum Tag {
     Aggregations = "Aggregations",
     Field = "Field",
     FieldRef = "FieldRef",
@@ -83,7 +83,7 @@ export enum TagType {
 }
 
 /** 处理函数选项 */
-export enum AggregationsType {
+export enum Aggregations {
     Count = "COUNT", // 计数
     Average = "AVG", // 取平均值
     Maximum = "MAX", // 取最大值
@@ -94,19 +94,18 @@ export enum AggregationsType {
 }
 
 /** 范围选项 */
-export enum ScopeType {
+export enum Scope {
     FilesOnly = "FilesOnly",
     Recursive = "Recursive",
     RecursiveAll = "RecursiveAll"
 }
 
 export enum Value {
-    None = ""
-}
-
-export enum Boolean {
-    True = "True",
-    False = "False"
+    None = "",
+    Boolean = {
+        True = "True",
+        False = "False"
+    }
 }
 
 export as namespace CamlEnum;
