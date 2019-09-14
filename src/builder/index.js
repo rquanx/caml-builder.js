@@ -14,13 +14,13 @@ let CamlBuilder = function() {
  * @param {CamlBuilder} caml
  */
 CamlBuilder.Copy = function(caml) {
-  let newCaml = new CamlBuilder();
+  let newCaml = CamlBuilder.Express();
   newCaml.CamlInfo = new CamlInfo(caml.CamlInfo);
   return newCaml;
 };
 
 /**
- * 创建纯表达式的caml，用于合并
+ * new caml
  */
 CamlBuilder.Express = function() {
   return new CamlBuilder();
@@ -33,32 +33,21 @@ CamlBuilder.Express = function() {
  * @param {string} value
  */
 CamlBuilder.Value = function(relation, valueType, value) {
-  let values = CamlEnum.Value.None;
-  switch (relation) {
-    case CamlEnum.Relation.In: {
-      let valueLength = value.length;
-      values = [];
-      for (let i = 0; i < valueLength; i++) {
-        values.push(CamlBuilder.CaseValueType(valueType, value[i]));
-      }
-      values = new XmlBuilder(CamlEnum.Tag.Values, CamlEnum.Value.None, values);
-      break;
-    }
-    case CamlEnum.Relation.IsNotNull: {
-      values = CamlEnum.Value.None;
-      break;
-    }
+  let calcValue = {
+    [CamlEnum.Relation.In]: () =>
+      XmlBuilder.Create(
+        CamlEnum.Tag.Values,
+        CamlEnum.Value.None,
+        value.map(v => CamlBuilder.CaseValueType(valueType, v))
+      ),
+    [CamlEnum.Relation.IsNotNull]: () => CamlEnum.Value.None,
+    [CamlEnum.Relation.IsNull]: () => CamlEnum.Value.None,
+    default: () => CamlBuilder.CaseValueType(valueType, value)
+  };
 
-    case CamlEnum.Relation.IsNull: {
-      values = CamlEnum.Value.None;
-      break;
-    }
-
-    default:
-      values = CamlBuilder.CaseValueType(valueType, value);
-      break;
-  }
-  return values;
+  return calcValue.hasOwnProperty(relation)
+    ? calcValue[relation]()
+    : calcValue["default"]();
 };
 
 /**
@@ -116,7 +105,7 @@ CamlBuilder.CaseValueType = function(valueType, value) {
     }
   }
 
-  return new XmlBuilder(CamlEnum.Tag.Value, property, value);
+  return XmlBuilder.Create(CamlEnum.Tag.Value, property, value);
 };
 
 /**
@@ -125,7 +114,6 @@ CamlBuilder.CaseValueType = function(valueType, value) {
  * @param {CamlBuilder[]} camlList
  */
 CamlBuilder.MergeList = function(logic, camlList) {
-  let result;
   let newCamlList = [];
   for (let i = 0; i < camlList.length - 1; i += 2) {
     newCamlList.push(CamlBuilder.Merge(logic, camlList[i], camlList[i + 1]));
@@ -134,12 +122,11 @@ CamlBuilder.MergeList = function(logic, camlList) {
     newCamlList.push(camlList[camlList.length - 1]);
   }
 
-  if (newCamlList.length > 1) {
-    result = CamlBuilder.MergeList(logic, newCamlList);
-  } else {
-    result = newCamlList.length > 0 ? newCamlList[0] : new CamlBuilder();
-  }
-  return result;
+  return newCamlList.length > 1
+    ? CamlBuilder.MergeList(logic, newCamlList)
+    : newCamlList.length > 0
+    ? newCamlList[0]
+    : CamlBuilder.Express();
 };
 
 /**
@@ -153,7 +140,6 @@ CamlBuilder.Merge = function(logic, camlFirst, camlSecond) {
   let firstCamlInfo = camlFirst.CamlInfo;
   let secondCamlInfo = camlSecond.CamlInfo;
   let tag = logic;
-  let children = [firstCamlInfo.Condition, secondCamlInfo.Condition];
   let count = 1;
   if (firstCamlInfo.Condition && secondCamlInfo.Condition) {
     count +=
@@ -165,8 +151,11 @@ CamlBuilder.Merge = function(logic, camlFirst, camlSecond) {
     count += firstCamlInfo.Count + secondCamlInfo.Count;
   }
 
-  let caml = new CamlBuilder();
-  caml.CamlInfo.Condition = new XmlBuilder(tag, CamlEnum.Value.None, children);
+  let caml = CamlBuilder.Express();
+  caml.CamlInfo.Condition = XmlBuilder.Create(tag, CamlEnum.Value.None, [
+    firstCamlInfo.Condition,
+    secondCamlInfo.Condition
+  ]);
   caml.CamlInfo.AddCount(count);
   return caml;
 };
@@ -181,7 +170,6 @@ CamlBuilder.Merge = function(logic, camlFirst, camlSecond) {
  * @param {string | number | string[] | number[]} value 可以是数组或字符串
  */
 CamlBuilder.prototype.And = function(relation, fieldName, valueType, value) {
-  let camlList = [];
   let property = {
     Name: fieldName
   };
@@ -190,43 +178,41 @@ CamlBuilder.prototype.And = function(relation, fieldName, valueType, value) {
     property.LookupId = CamlEnum.Value.Boolean.True;
   }
 
-  let fieldRef = new XmlBuilder(
+  let fieldRef = XmlBuilder.Create(
     CamlEnum.Tag.FieldRef,
     property,
     CamlEnum.Value.None
   );
 
   if (relation === CamlEnum.Relation.In) {
+    let camlList = [];
     for (let i = 0; i < value.length; i += CamlInfo.Options.MaxIn) {
-      let temCaml = new CamlBuilder();
       let valueList = value.slice(i, i + CamlInfo.Options.MaxIn);
-      temCaml.Merge(
-        CamlEnum.Logic.Or,
-        new XmlBuilder(relation, CamlEnum.Value.None, [
-          fieldRef,
-          CamlBuilder.Value(relation, valueType, valueList)
-        ])
-      );
-      camlList.push(temCaml);
+      let camlValue = CamlBuilder.Value(relation, valueType, valueList);
+      let xml = XmlBuilder.Create(relation, CamlEnum.Value.None, [
+        fieldRef,
+        camlValue
+      ]);
+      camlList.push(CamlBuilder.Express().Merge(CamlEnum.Logic.Or, xml));
     }
     this.Merge(
       CamlEnum.Logic.And,
       CamlBuilder.MergeList(CamlEnum.Logic.Or, camlList)
     );
   } else {
-    this.CamlInfo.Condition = new XmlBuilder(
+    let xml = XmlBuilder.Create(relation, CamlEnum.Value.None, [
+      fieldRef,
+      CamlBuilder.Value(relation, valueType, value)
+    ]);
+    let child = [this.CamlInfo.Condition, xml];
+
+    this.CamlInfo.Condition = XmlBuilder.Create(
       CamlEnum.Value.None,
       CamlEnum.Value.None,
-      [
-        this.CamlInfo.Condition,
-        new XmlBuilder(relation, CamlEnum.Value.None, [
-          fieldRef,
-          CamlBuilder.Value(relation, valueType, value)
-        ])
-      ]
+      child
     );
     if (this.CamlInfo.Count >= 1) {
-      this.CamlInfo.Condition = new XmlBuilder(
+      this.CamlInfo.Condition = XmlBuilder.Create(
         CamlEnum.Tag.And,
         CamlEnum.Value.None,
         this.CamlInfo.Condition
@@ -247,7 +233,6 @@ CamlBuilder.prototype.And = function(relation, fieldName, valueType, value) {
  * @param {string | number | string[] | number[]} value 可以是数组或字符串
  */
 CamlBuilder.prototype.Or = function(relation, fieldName, valueType, value) {
-  let camlList = [];
   let property = {
     Name: fieldName
   };
@@ -255,51 +240,48 @@ CamlBuilder.prototype.Or = function(relation, fieldName, valueType, value) {
   if (valueType === CamlEnum.ValueType.LookupId) {
     property.LookupId = CamlEnum.Value.Boolean.True;
   }
-  let fieldRef = new XmlBuilder(
+  let fieldRef = XmlBuilder.Create(
     CamlEnum.Tag.FieldRef,
     property,
     CamlEnum.Value.None
   );
   if (relation === CamlEnum.Relation.In) {
+    let camlList = [];
     for (let i = 0; i < value.length; i += CamlInfo.Options.MaxIn) {
-      let temCaml = new CamlBuilder();
       let valueList = value.slice(i, i + CamlInfo.Options.MaxIn);
-      temCaml.Merge(
-        CamlEnum.Logic.Or,
-        new XmlBuilder(relation, CamlEnum.Value.None, [
-          fieldRef,
-          CamlBuilder.Value(relation, valueType, valueList)
-        ])
-      );
-      camlList.push(temCaml);
+      let camlValue = CamlBuilder.Value(relation, valueType, valueList);
+      let xml = XmlBuilder.Create(relation, CamlEnum.Value.None, [
+        fieldRef,
+        camlValue
+      ]);
+      camlList.push(CamlBuilder.Express().Merge(CamlEnum.Logic.Or, xml));
     }
     this.Merge(
       CamlEnum.Logic.Or,
       CamlBuilder.MergeList(CamlEnum.Logic.Or, camlList)
     );
   } else if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i++) {
-      let temCaml = new CamlBuilder();
-      camlList.push(temCaml.Or(relation, fieldName, valueType, value[i]));
-    }
+    let camlList = value.map(v =>
+      CamlBuilder.Express().Or(relation, fieldName, valueType, v)
+    );
     this.Merge(
       CamlEnum.Logic.Or,
       CamlBuilder.MergeList(CamlEnum.Logic.Or, camlList)
     );
   } else {
-    this.CamlInfo.Condition = new XmlBuilder(
+    this.CamlInfo.Condition = XmlBuilder.Create(
       CamlEnum.Value.None,
       CamlEnum.Value.None,
       [
         this.CamlInfo.Condition,
-        new XmlBuilder(relation, CamlEnum.Value.None, [
+        XmlBuilder.Create(relation, CamlEnum.Value.None, [
           fieldRef,
           CamlBuilder.Value(relation, valueType, value)
         ])
       ]
     );
     if (this.CamlInfo.Count >= 1) {
-      this.CamlInfo.Condition = new XmlBuilder(
+      this.CamlInfo.Condition = XmlBuilder.Create(
         CamlEnum.Tag.Or,
         CamlEnum.Value.None,
         this.CamlInfo.Condition
@@ -312,25 +294,23 @@ CamlBuilder.prototype.Or = function(relation, fieldName, valueType, value) {
 
 /**
  * 设置排序,不设置按默认排序,
+ * false 从小到大倒序
  * @param { [{field: string, ascend: boolean}] } orderByList
  */
 CamlBuilder.prototype.OrderBy = function(orderByList) {
-  // false 从小到大倒序
-  this.CamlInfo.Orderby = CamlEnum.Value.None;
-  let orderByArray = orderByList.map(
-    item =>
-      new XmlBuilder(
-        CamlEnum.Tag.FieldRef,
-        {
-          Name: item.field,
-          Ascending: item.ascend
-            ? CamlEnum.Value.Boolean.True
-            : CamlEnum.Value.Boolean.False
-        },
-        CamlEnum.Value.None
-      )
+  let orderByArray = orderByList.map(item =>
+    XmlBuilder.Create(
+      CamlEnum.Tag.FieldRef,
+      {
+        Name: item.field,
+        Ascending: item.ascend
+          ? CamlEnum.Value.Boolean.True
+          : CamlEnum.Value.Boolean.False
+      },
+      CamlEnum.Value.None
+    )
   );
-  this.CamlInfo.Orderby = new XmlBuilder(
+  this.CamlInfo.Orderby = XmlBuilder.Create(
     CamlEnum.Tag.OrderBy,
     CamlEnum.Value.None,
     orderByArray
@@ -354,7 +334,7 @@ CamlBuilder.prototype.Scope = function(scope = CamlEnum.Scope.RecursiveAll) {
  * @param {number | string} rowLimit
  */
 CamlBuilder.prototype.RowLimit = function(rowLimit = 0) {
-  this.CamlInfo.RowLimit = new XmlBuilder(
+  this.CamlInfo.RowLimit = XmlBuilder.Create(
     CamlEnum.Tag.RowLimit,
     CamlEnum.Value.None,
     rowLimit
@@ -366,31 +346,41 @@ CamlBuilder.prototype.RowLimit = function(rowLimit = 0) {
  * 结束caml拼接，追加Query、Where、View...
  */
 CamlBuilder.prototype.End = function() {
-  let where = new XmlBuilder(
+  let where = XmlBuilder.Create(
     CamlEnum.Tag.Where,
     CamlEnum.Value.None,
     this.CamlInfo.Condition
   );
   let queryChildren = [where, this.CamlInfo.GroupBy, this.CamlInfo.Orderby];
 
+  let query = XmlBuilder.Create(
+    CamlEnum.Tag.Query,
+    CamlEnum.Value.None,
+    queryChildren
+  );
+
+  let join = this.CamlInfo.Joins
+    ? XmlBuilder.Create(
+        CamlEnum.Tag.Joins,
+        CamlEnum.Value.None,
+        this.CamlInfo.Joins
+      )
+    : this.CamlInfo.Joins;
+
+  let projectedFields = (this.CamlInfo.ProjectedFields = this.CamlInfo
+    .ProjectedFields
+    ? XmlBuilder.Create(
+        CamlEnum.Tag.ProjectedFields,
+        CamlEnum.Value.None,
+        this.CamlInfo.ProjectedFields
+      )
+    : this.CamlInfo.ProjectedFields);
   this.CamlInfo.View.children = [
     this.CamlInfo.ViewFields,
     this.CamlInfo.Aggregations,
-    new XmlBuilder(CamlEnum.Tag.Query, CamlEnum.Value.None, queryChildren),
-    this.CamlInfo.Joins
-      ? new XmlBuilder(
-          CamlEnum.Tag.Joins,
-          CamlEnum.Value.None,
-          this.CamlInfo.Joins
-        )
-      : this.CamlInfo.Joins,
-    (this.CamlInfo.ProjectedFields = this.CamlInfo.ProjectedFields
-      ? new XmlBuilder(
-          CamlEnum.Tag.ProjectedFields,
-          CamlEnum.Value.None,
-          this.CamlInfo.ProjectedFields
-        )
-      : this.CamlInfo.ProjectedFields),
+    query,
+    join,
+    projectedFields,
     this.CamlInfo.RowLimit
   ];
 
@@ -435,12 +425,12 @@ CamlBuilder.prototype.Merge = function(logic, caml) {
   if (camlStr) {
     this.CamlInfo.AddCount(count);
     if (this.CamlInfo.Condition) {
-      this.CamlInfo.Condition = new XmlBuilder(logic, CamlEnum.Value.None, [
+      this.CamlInfo.Condition = XmlBuilder.Create(logic, CamlEnum.Value.None, [
         this.CamlInfo.Condition,
         camlStr
       ]);
     } else {
-      this.CamlInfo.Condition = new XmlBuilder(
+      this.CamlInfo.Condition = XmlBuilder.Create(
         CamlEnum.Value.None,
         CamlEnum.Value.None,
         [camlStr]
@@ -453,17 +443,16 @@ CamlBuilder.prototype.Merge = function(logic, caml) {
 
 /**
  * 需要使用 RenderListData api
- * 合并两个caml对象 "<logic> Condition + camlStr</logic>"
  * @param {boolean} collapse   是否聚合,聚合时按分组返回部分相关数据，不聚合时按item项返回全部字段数据，配合ViewFields可以限制返回的字段,
  * @param {number} groupLimit 返回的视图Row数量
  * @param {string} fieldName     分组字段
  */
 CamlBuilder.prototype.GroupBy = function(collapse, groupLimit, fieldName) {
-  let fieldRef = new XmlBuilder(CamlEnum.Tag.FieldRef, {
+  let fieldRef = XmlBuilder.Create(CamlEnum.Tag.FieldRef, {
     Name: fieldName
   });
 
-  this.CamlInfo.GroupBy = new XmlBuilder(
+  this.CamlInfo.GroupBy = XmlBuilder.Create(
     CamlEnum.Tag.GroupBy,
     {
       Collapse: collapse.toString(),
@@ -481,18 +470,17 @@ CamlBuilder.prototype.GroupBy = function(collapse, groupLimit, fieldName) {
 CamlBuilder.prototype.ViewFields = function(fieldNames) {
   let viewFields;
   if (Array.isArray(fieldNames)) {
-    viewFields = fieldNames.map(
-      item =>
-        new XmlBuilder(
-          CamlEnum.Tag.FieldRef,
-          {
-            Name: item
-          },
-          CamlEnum.Value.None
-        )
+    viewFields = fieldNames.map(item =>
+      XmlBuilder.Create(
+        CamlEnum.Tag.FieldRef,
+        {
+          Name: item
+        },
+        CamlEnum.Value.None
+      )
     );
   } else {
-    viewFields = new XmlBuilder(
+    viewFields = XmlBuilder.Create(
       CamlEnum.Tag.FieldRef,
       {
         Name: fieldNames
@@ -501,7 +489,7 @@ CamlBuilder.prototype.ViewFields = function(fieldNames) {
     );
   }
 
-  this.CamlInfo.ViewFields = new XmlBuilder(
+  this.CamlInfo.ViewFields = XmlBuilder.Create(
     CamlEnum.Tag.ViewFields,
     CamlEnum.Value.None,
     viewFields
@@ -525,7 +513,7 @@ CamlBuilder.prototype.Joins = function(
   fieldName
 ) {
   let fieldList = [
-    new XmlBuilder(
+    XmlBuilder.Create(
       CamlEnum.Tag.FieldRef,
       {
         Name: field,
@@ -533,7 +521,7 @@ CamlBuilder.prototype.Joins = function(
       },
       CamlEnum.Value.None
     ),
-    new XmlBuilder(
+    XmlBuilder.Create(
       CamlEnum.Tag.FieldRef,
       {
         Name: "ID",
@@ -543,13 +531,13 @@ CamlBuilder.prototype.Joins = function(
     )
   ];
 
-  let eq = new XmlBuilder(CamlEnum.Tag.Eq, CamlEnum.Value.None, fieldList);
+  let eq = XmlBuilder.Create(CamlEnum.Tag.Eq, CamlEnum.Value.None, fieldList);
 
   if (!this.CamlInfo.Joins) {
     this.CamlInfo.Joins = [];
   }
   this.CamlInfo.Joins.push(
-    new XmlBuilder(
+    XmlBuilder.Create(
       CamlEnum.Tag.Join,
       {
         Type: type,
@@ -574,7 +562,7 @@ CamlBuilder.prototype.Joins = function(
    */
   function ProjectedFields(fieldName, name, listName) {
     // <Field ShowField="titel111" Type="Lookup" Name="test1" List="test1" />
-    let projectedFields = new XmlBuilder(CamlEnum.Tag.Field, {
+    let projectedFields = XmlBuilder.Create(CamlEnum.Tag.Field, {
       Name: name,
       ShowField: fieldName,
       Type: "Lookup",
@@ -602,14 +590,14 @@ CamlBuilder.prototype.Aggregations = function(aggregationList) {
         Type: item.type
       };
     }
-    return new XmlBuilder(
+    return XmlBuilder.Create(
       CamlEnum.Tag.FieldRef,
       aggregation,
       CamlEnum.Value.None
     );
   });
 
-  this.CamlInfo.Aggregations = new XmlBuilder(
+  this.CamlInfo.Aggregations = XmlBuilder.Create(
     CamlEnum.Tag.Aggregations,
     {
       Value: "On"

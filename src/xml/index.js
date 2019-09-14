@@ -95,4 +95,7 @@ XmlBuilder.Tag = (tagName, property, children) => {
  */
 XmlBuilder.Value = (key, value) => ` ${key}='${value}' `;
 
+XmlBuilder.Create = (tagName, property, children) =>
+  new XmlBuilder(tagName, property, children);
+
 export default XmlBuilder;

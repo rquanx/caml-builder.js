@@ -48,6 +48,8 @@ declare class XmlBuilder {
      * @param  value 
      */
     static Value(key: string, value: string);
+
+    static Create(tagName: string, property: Object, children: any): XmlBuilder;
 }
 
 
