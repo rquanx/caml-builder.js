@@ -47,7 +47,7 @@ CamlBuilder.Value = function(relation, valueType, value) {
 
   return calcValue.hasOwnProperty(relation)
     ? calcValue[relation]()
-    : calcValue["default"]();
+    : calcValue.default();
 };
 
 /**
@@ -75,7 +75,12 @@ CamlBuilder.CaseValueType = function(valueType, value) {
       break;
     }
     case CamlEnum.ValueType.Boolean: {
-      value = Number(value) ? 1 : 0;
+      if(typeof value === "string") {
+        value = value.toLowerCase() === CamlEnum.Value.Boolean.True.toLowerCase() ? 1 : 0;
+      }
+      else {
+        value = Number(value) ? 1 : 0;
+      }
       break;
     }
     case CamlEnum.ValueType.LookupId: {
@@ -85,6 +90,9 @@ CamlBuilder.CaseValueType = function(valueType, value) {
           value = value.id;
         } else if (value.get_lookupId) {
           value = value.get_lookupId();
+        }
+        else {
+          throw(value,`lookupid is not defined`);
         }
       }
       break;
@@ -96,6 +104,9 @@ CamlBuilder.CaseValueType = function(valueType, value) {
           value = value.value;
         } else if (value.get_lookupId) {
           value = value.get_lookupValue();
+        }
+        else {
+          throw(value,`lookupvalue is not defined`);
         }
       }
       break;

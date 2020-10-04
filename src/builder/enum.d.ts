@@ -100,7 +100,7 @@ export enum Scope {
     RecursiveAll = "RecursiveAll"
 }
 
-export enum Value {
+export const Value = {
     None = "",
     Boolean = {
         True = "True",
