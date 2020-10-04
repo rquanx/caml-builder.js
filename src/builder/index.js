@@ -306,7 +306,7 @@ CamlBuilder.prototype.Or = function(relation, fieldName, valueType, value) {
 /**
  * 设置排序,不设置按默认排序,
  * false 从小到大倒序
- * @param { [{field: string, ascend: boolean}] } orderByList
+ * @param { {field: string, ascend: boolean}[] } orderByList
  */
 CamlBuilder.prototype.OrderBy = function(orderByList) {
   let orderByArray = orderByList.map(item =>
