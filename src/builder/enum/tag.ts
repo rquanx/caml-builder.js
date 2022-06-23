@@ -32,3 +32,5 @@ export enum Tag {
   IsNotNull = "IsNotNull",
   DateRangesOverlap = "DateRangesOverlap"
 };
+
+export type TagKey = keyof typeof Tag;

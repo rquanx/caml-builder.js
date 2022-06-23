@@ -8,3 +8,5 @@ export enum Aggregations {
   StdDeviation = "STDEV", // 开方?
   Variance = "VAR"
 };
+
+export type AggregationsKey = keyof typeof Aggregations;

@@ -1,10 +1,10 @@
-export class Aggregations {
-    private name: string;
-    private type: string;
+export class AggregationsModal {
+    private Name: string;
+    private Type: string;
     constructor(field: string, type: string) {
-        this.name = field;
-        this.type = type;
+        this.Name = field;
+        this.Type = type;
     }
 }
 
-export default Aggregations;
+export default AggregationsModal;

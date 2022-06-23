@@ -1,9 +1,9 @@
 export type Value = string | number | boolean | Date;
-export type Children = XmlBuilder[] | XmlBuilder | string | number | boolean | Date;
+export type Children = (XmlBuilder | string | undefined)[] | XmlBuilder | string | number | boolean | Date;
 export type Property = Record<string, Value> | string;
 export class XmlBuilder {
 
-  constructor(public tagName: string, public property: Property, public children: Children) { }
+  constructor(public tagName: string, public property: Property, public children?: Children) { }
 
   /**
    * 创建字符串
@@ -13,16 +13,16 @@ export class XmlBuilder {
   }
 
 
-  static create(tagName: string, property: Property, children: Children) {
+  static create(tagName: string, property: Property, children?: Children) {
     return new XmlBuilder(tagName, property, children)
   }
 }
 
-const createXMLString = function (tagName: string, property: Property, children: Children) {
+const createXMLString = function (tagName: string, property: Property, children?: Children) {
   return tag(tagName, property, children);
 };
 
-const tag = (tagName: string, property: Property, children: Children) => {
+const tag = (tagName: string, property: Property, children?: Children) => {
   if (children || children === 0) {
     return tagName
       ? `<${tagName}${renderProps(
@@ -34,7 +34,8 @@ const tag = (tagName: string, property: Property, children: Children) => {
   }
 };
 
-const renderChildren = function (children: Children) {
+export const renderChildren = function (children: Children) {
+  if(!children) return "";
   let childrenStr = "";
   if (Array.isArray(children)) {
     children.forEach(item => {

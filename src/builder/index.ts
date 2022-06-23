@@ -1,640 +1,614 @@
-import XmlBuilder from "../xml/index";
-import CamlInfo from "../info/index";
-import CamlEnum from "./enum";
-import Aggregations from "../modal/Aggregations";
-import { getCamlDateTime } from "../helper/index";
+import { ValueTypeKey } from './enum/value-type';
+import XmlBuilder, { renderChildren } from "../xml";
+import CamlInfo from "../info";
+import { Aggregations, Value, ValueType, Logic, Relation, Scope, Tag, RelationKey, LogicKey, TagKey, ScopeKey } from "./enum";
+import AggregationsModal from "../modal/Aggregations";
+import { dateToString } from "../utils";
+import { AggregationData, Order, Property, ValueTypeMap } from "./type";
 
-/** @constructor */
-let CamlBuilder = function() {
-  this.CamlInfo = new CamlInfo();
-};
-
-/**
- * 返回一个内容完全相同的全新caml对象
- * @param {CamlBuilder} caml
- */
-CamlBuilder.Copy = function(caml) {
-  let newCaml = CamlBuilder.Express();
-  newCaml.CamlInfo = new CamlInfo(caml.CamlInfo);
-  return newCaml;
-};
-
-/**
- * new caml
- */
-CamlBuilder.Express = function() {
-  return new CamlBuilder();
-};
-
-/**
- * 根据值的关系进行值标签生成的选择
- * @param {string} relation
- * @param {string} valueType
- * @param {string} value
- */
-CamlBuilder.Value = function(relation, valueType, value) {
-  let calcValue = {
-    [CamlEnum.Relation.In]: () =>
-      XmlBuilder.Create(
-        CamlEnum.Tag.Values,
-        CamlEnum.Value.None,
-        value.map(v => CamlBuilder.CaseValueType(valueType, v))
-      ),
-    [CamlEnum.Relation.IsNotNull]: () => CamlEnum.Value.None,
-    [CamlEnum.Relation.IsNull]: () => CamlEnum.Value.None,
-    default: () => CamlBuilder.CaseValueType(valueType, value)
-  };
-
-  return calcValue.hasOwnProperty(relation)
-    ? calcValue[relation]()
-    : calcValue.default();
-};
-
-/**
- * 根据值类型返回值标签的字符串
- * @param {string} valueType
- * @param {string} value
- */
-CamlBuilder.CaseValueType = function(valueType, value) {
-  let property = {
-    Type: valueType
-  };
-  switch (valueType) {
-    case CamlEnum.ValueType.DateTime: {
-      property.IncludeTimeValue = CamlEnum.Value.Boolean.True;
-      if (typeof value === "object") {
-        value = getCamlDateTime(value);
-      }
-      break;
-    }
-    case CamlEnum.ValueType.Date: {
-      property.Type = CamlEnum.ValueType.DateTime;
-      if (typeof value === "object") {
-        value = getCamlDateTime(value);
-      }
-      break;
-    }
-    case CamlEnum.ValueType.Boolean: {
-      if(typeof value === "string") {
-        value = value.toLowerCase() === CamlEnum.Value.Boolean.True.toLowerCase() ? 1 : 0;
-      }
-      else {
-        value = Number(value) ? 1 : 0;
-      }
-      break;
-    }
-    case CamlEnum.ValueType.LookupId: {
-      property.Type = CamlEnum.ValueType.Integer;
-      if (typeof value === "object") {
-        if (value.id) {
-          value = value.id;
-        } else if (value.get_lookupId) {
-          value = value.get_lookupId();
-        }
-        else {
-          throw(value,`lookupid is not defined`);
-        }
-      }
-      break;
-    }
-    case CamlEnum.ValueType.LookupValue: {
-      property.Type = CamlEnum.ValueType.Text;
-      if (typeof value === "object") {
-        if (value.value) {
-          value = value.value;
-        } else if (value.get_lookupId) {
-          value = value.get_lookupValue();
-        }
-        else {
-          throw(value,`lookupvalue is not defined`);
-        }
-      }
-      break;
-    }
-    default: {
-      break;
-    }
+export class CamlBuilder {
+  camlInfo: CamlInfo;
+  constructor() {
+    this.camlInfo = new CamlInfo()
   }
-
-  return XmlBuilder.Create(CamlEnum.Tag.Value, property, value);
-};
-
-/**
- * 将全部的camlList用logic合并起来,两两进行递归合并
- * @param {string} logic
- * @param {CamlBuilder[]} camlList
- */
-CamlBuilder.MergeList = function(logic, camlList) {
-  let newCamlList = [];
-  for (let i = 0; i < camlList.length - 1; i += 2) {
-    newCamlList.push(CamlBuilder.Merge(logic, camlList[i], camlList[i + 1]));
-  }
-  if (camlList.length % 2 !== 0) {
-    newCamlList.push(camlList[camlList.length - 1]);
-  }
-
-  return newCamlList.length > 1
-    ? CamlBuilder.MergeList(logic, newCamlList)
-    : newCamlList.length > 0
-    ? newCamlList[0]
-    : CamlBuilder.Express();
-};
-
-/**
- * 将两个caml合并
- * <logic> c1 + c2 </logic>
- * @param {string} logic
- * @param {CamlBuilder} camlFirst
- * @param {CamlBuilder} camlSecond
- */
-CamlBuilder.Merge = function(logic, camlFirst, camlSecond) {
-  let firstCamlInfo = camlFirst.CamlInfo;
-  let secondCamlInfo = camlSecond.CamlInfo;
-  let tag = logic;
-  let count = 1;
-  if (firstCamlInfo.Condition && secondCamlInfo.Condition) {
-    count +=
-      firstCamlInfo.Count > secondCamlInfo.Count
-        ? firstCamlInfo.Count
-        : secondCamlInfo.Count;
-  } else if (firstCamlInfo.Condition || secondCamlInfo.Condition) {
-    tag = CamlEnum.Value.None;
-    count += firstCamlInfo.Count + secondCamlInfo.Count;
-  }
-
-  let caml = CamlBuilder.Express();
-  caml.CamlInfo.Condition = XmlBuilder.Create(tag, CamlEnum.Value.None, [
-    firstCamlInfo.Condition,
-    secondCamlInfo.Condition
-  ]);
-  caml.CamlInfo.AddCount(count);
-  return caml;
-};
-
-/**
- * 最外层增加一个And条件
- * <And><relation><FieldRef Name='fieldName'><Value Type='valueType'></Value></relation> ... </And>
- * 传入数组会使用<In></In>处理
- * @param {string} relation   Eq,Neq,Leq,Geq,Contains,In....
- * @param {string} fieldName 字段内部名称
- * @param {string} valueType Text,LookupId,LookupValue,DateTime,Date
- * @param {string | number | string[] | number[]} value 可以是数组或字符串
- */
-CamlBuilder.prototype.And = function(relation, fieldName, valueType, value) {
-  let property = {
-    Name: fieldName
-  };
-
-  if (valueType === CamlEnum.ValueType.LookupId) {
-    property.LookupId = CamlEnum.Value.Boolean.True;
-  }
-
-  let fieldRef = XmlBuilder.Create(
-    CamlEnum.Tag.FieldRef,
-    property,
-    CamlEnum.Value.None
-  );
-
-  if (relation === CamlEnum.Relation.In) {
-    let camlList = [];
-    for (let i = 0; i < value.length; i += CamlInfo.Options.MaxIn) {
-      let valueList = value.slice(i, i + CamlInfo.Options.MaxIn);
-      let camlValue = CamlBuilder.Value(relation, valueType, valueList);
-      let xml = XmlBuilder.Create(relation, CamlEnum.Value.None, [
-        fieldRef,
-        camlValue
-      ]);
-      camlList.push(CamlBuilder.Express().Merge(CamlEnum.Logic.Or, xml));
-    }
-    this.Merge(
-      CamlEnum.Logic.And,
-      CamlBuilder.MergeList(CamlEnum.Logic.Or, camlList)
-    );
-  } else {
-    let xml = XmlBuilder.Create(relation, CamlEnum.Value.None, [
-      fieldRef,
-      CamlBuilder.Value(relation, valueType, value)
-    ]);
-    let child = [this.CamlInfo.Condition, xml];
-
-    this.CamlInfo.Condition = XmlBuilder.Create(
-      CamlEnum.Value.None,
-      CamlEnum.Value.None,
-      child
-    );
-    if (this.CamlInfo.Count >= 1) {
-      this.CamlInfo.Condition = XmlBuilder.Create(
-        CamlEnum.Tag.And,
-        CamlEnum.Value.None,
-        this.CamlInfo.Condition
-      );
-    }
-  }
-  this.CamlInfo.AddCount();
-  return this;
-};
-
-/**
- * 最外层增加一个Or条件
- * <Or><relation><FieldRef Name='fieldName'><Value Type='valueType'></Value></relation> ... </Or>
- * 传入数组会使用<In></In>处理
- * @param {string} relation   Eq,Neq,Leq,Geq,Contains,In....
- * @param {string} fieldName 字段内部名称
- * @param {string} valueType Text,LookupId,LookupValue,DateTime,Date
- * @param {string | number | string[] | number[]} value 可以是数组或字符串
- */
-CamlBuilder.prototype.Or = function(relation, fieldName, valueType, value) {
-  let property = {
-    Name: fieldName
-  };
-
-  if (valueType === CamlEnum.ValueType.LookupId) {
-    property.LookupId = CamlEnum.Value.Boolean.True;
-  }
-  let fieldRef = XmlBuilder.Create(
-    CamlEnum.Tag.FieldRef,
-    property,
-    CamlEnum.Value.None
-  );
-  if (relation === CamlEnum.Relation.In) {
-    let camlList = [];
-    for (let i = 0; i < value.length; i += CamlInfo.Options.MaxIn) {
-      let valueList = value.slice(i, i + CamlInfo.Options.MaxIn);
-      let camlValue = CamlBuilder.Value(relation, valueType, valueList);
-      let xml = XmlBuilder.Create(relation, CamlEnum.Value.None, [
-        fieldRef,
-        camlValue
-      ]);
-      camlList.push(CamlBuilder.Express().Merge(CamlEnum.Logic.Or, xml));
-    }
-    this.Merge(
-      CamlEnum.Logic.Or,
-      CamlBuilder.MergeList(CamlEnum.Logic.Or, camlList)
-    );
-  } else if (Array.isArray(value)) {
-    let camlList = value.map(v =>
-      CamlBuilder.Express().Or(relation, fieldName, valueType, v)
-    );
-    this.Merge(
-      CamlEnum.Logic.Or,
-      CamlBuilder.MergeList(CamlEnum.Logic.Or, camlList)
-    );
-  } else {
-    this.CamlInfo.Condition = XmlBuilder.Create(
-      CamlEnum.Value.None,
-      CamlEnum.Value.None,
-      [
-        this.CamlInfo.Condition,
-        XmlBuilder.Create(relation, CamlEnum.Value.None, [
-          fieldRef,
-          CamlBuilder.Value(relation, valueType, value)
-        ])
-      ]
-    );
-    if (this.CamlInfo.Count >= 1) {
-      this.CamlInfo.Condition = XmlBuilder.Create(
-        CamlEnum.Tag.Or,
-        CamlEnum.Value.None,
-        this.CamlInfo.Condition
-      );
-    }
-  }
-  this.CamlInfo.AddCount();
-  return this;
-};
-
-/**
- * 设置排序,不设置按默认排序,
- * false 从小到大倒序
- * @param { {field: string, ascend: boolean}[] } orderByList
- */
-CamlBuilder.prototype.OrderBy = function(orderByList) {
-  let orderByArray = orderByList.map(item =>
-    XmlBuilder.Create(
-      CamlEnum.Tag.FieldRef,
-      {
-        Name: item.field,
-        Ascending: item.ascend
-          ? CamlEnum.Value.Boolean.True
-          : CamlEnum.Value.Boolean.False
-      },
-      CamlEnum.Value.None
-    )
-  );
-  this.CamlInfo.Orderby = XmlBuilder.Create(
-    CamlEnum.Tag.OrderBy,
-    CamlEnum.Value.None,
-    orderByArray
-  );
-  return this;
-};
-
-/**
- * 设置搜索范围,默认值设置为RecursiveAll，不调用此函数为默认搜索最顶层
- * @param {string} scope
- */
-CamlBuilder.prototype.Scope = function(scope = CamlEnum.Scope.RecursiveAll) {
-  this.CamlInfo.View.property = {
-    Scope: scope
-  };
-  return this;
-};
-
-/**
- * 设置搜索条数,不调用此函数默认搜索100条,搜索全部设置为0，参数默认为0
- * @param {number | string} rowLimit
- */
-CamlBuilder.prototype.RowLimit = function(rowLimit = 0) {
-  this.CamlInfo.RowLimit = XmlBuilder.Create(
-    CamlEnum.Tag.RowLimit,
-    CamlEnum.Value.None,
-    rowLimit
-  );
-  return this;
-};
-
-/**
- * 结束caml拼接，追加Query、Where、View...
- */
-CamlBuilder.prototype.End = function() {
-  let where = XmlBuilder.Create(
-    CamlEnum.Tag.Where,
-    CamlEnum.Value.None,
-    this.CamlInfo.Condition
-  );
-  let queryChildren = [where, this.CamlInfo.GroupBy, this.CamlInfo.Orderby];
-
-  let query = XmlBuilder.Create(
-    CamlEnum.Tag.Query,
-    CamlEnum.Value.None,
-    queryChildren
-  );
-
-  let join = this.CamlInfo.Joins
-    ? XmlBuilder.Create(
-        CamlEnum.Tag.Joins,
-        CamlEnum.Value.None,
-        this.CamlInfo.Joins
-      )
-    : this.CamlInfo.Joins;
-
-  let projectedFields = (this.CamlInfo.ProjectedFields = this.CamlInfo
-    .ProjectedFields
-    ? XmlBuilder.Create(
-        CamlEnum.Tag.ProjectedFields,
-        CamlEnum.Value.None,
-        this.CamlInfo.ProjectedFields
-      )
-    : this.CamlInfo.ProjectedFields);
-  this.CamlInfo.View.children = [
-    this.CamlInfo.ViewFields,
-    this.CamlInfo.Aggregations,
-    query,
-    join,
-    projectedFields,
-    this.CamlInfo.RowLimit
-  ];
-
-  this.CamlInfo.Condition = this.CamlInfo.View;
-  return this;
-};
-
-/**
- * 输出caml字符串
- * @return {string} caml字符串
- */
-CamlBuilder.prototype.ToString = function() {
-  return this.CamlInfo.Condition.CreateElement
-    ? this.CamlInfo.Condition.CreateElement()
-    : XmlBuilder.RenderChildren(this.CamlInfo.Condition);
-};
-
-/**
- * 清空条件设置
- */
-CamlBuilder.prototype.Clear = function() {
-  this.CamlInfo = new CamlInfo();
-  return this;
-};
-
-/**
- * 合并两个caml对象 "<logic> Condition + camlStr</logic>"
- * @param {string} logic And/Or
- * @param {string | CamlBuilder | XmlBuilder} caml caml对象或string没有end的
- */
-CamlBuilder.prototype.Merge = function(logic, caml) {
-  let camlStr = CamlEnum.Value.None;
-  let count = 0;
-  if (typeof caml === "string") {
-    camlStr = caml;
-  } else if (caml.CamlInfo) {
-    camlStr = caml.CamlInfo.Condition;
-    count = caml.CamlInfo.Count;
-  } else {
-    camlStr = caml;
-  }
-  if (camlStr) {
-    this.CamlInfo.AddCount(count);
-    if (this.CamlInfo.Condition) {
-      this.CamlInfo.Condition = XmlBuilder.Create(logic, CamlEnum.Value.None, [
-        this.CamlInfo.Condition,
-        camlStr
-      ]);
-    } else {
-      this.CamlInfo.Condition = XmlBuilder.Create(
-        CamlEnum.Value.None,
-        CamlEnum.Value.None,
-        [camlStr]
-      );
-    }
-  }
-
-  return this;
-};
-
-/**
- * 需要使用 RenderListData api
- * @param {boolean} collapse   是否聚合,聚合时按分组返回部分相关数据，不聚合时按item项返回全部字段数据，配合ViewFields可以限制返回的字段,
- * @param {number} groupLimit 返回的视图Row数量
- * @param {string} fieldName     分组字段
- */
-CamlBuilder.prototype.GroupBy = function(collapse, groupLimit, fieldName) {
-  let fieldRef = XmlBuilder.Create(CamlEnum.Tag.FieldRef, {
-    Name: fieldName
-  });
-
-  this.CamlInfo.GroupBy = XmlBuilder.Create(
-    CamlEnum.Tag.GroupBy,
-    {
-      Collapse: collapse.toString(),
-      GroupLimit: groupLimit
-    },
-    fieldRef
-  );
-  return this;
-};
-
-/**
- * 设置返回的字段
- * @param {string | string[]} fieldNames
- */
-CamlBuilder.prototype.ViewFields = function(fieldNames) {
-  let viewFields;
-  if (Array.isArray(fieldNames)) {
-    viewFields = fieldNames.map(item =>
-      XmlBuilder.Create(
-        CamlEnum.Tag.FieldRef,
-        {
-          Name: item
-        },
-        CamlEnum.Value.None
-      )
-    );
-  } else {
-    viewFields = XmlBuilder.Create(
-      CamlEnum.Tag.FieldRef,
-      {
-        Name: fieldNames
-      },
-      CamlEnum.Value.None
-    );
-  }
-
-  this.CamlInfo.ViewFields = XmlBuilder.Create(
-    CamlEnum.Tag.ViewFields,
-    CamlEnum.Value.None,
-    viewFields
-  );
-  return this;
-};
-
-/**
- * 待完善
- * @param {string} type
- * @param {string} listAlias
- * @param {string} field
- * @param {string} showField
- * @param {string} fieldName
- */
-CamlBuilder.prototype.Joins = function(
-  type,
-  listAlias,
-  field,
-  showField,
-  fieldName
-) {
-  let fieldList = [
-    XmlBuilder.Create(
-      CamlEnum.Tag.FieldRef,
-      {
-        Name: field,
-        RefType: "ID"
-      },
-      CamlEnum.Value.None
-    ),
-    XmlBuilder.Create(
-      CamlEnum.Tag.FieldRef,
-      {
-        Name: "ID",
-        List: listAlias
-      },
-      CamlEnum.Value.None
-    )
-  ];
-
-  let eq = XmlBuilder.Create(CamlEnum.Tag.Eq, CamlEnum.Value.None, fieldList);
-
-  if (!this.CamlInfo.Joins) {
-    this.CamlInfo.Joins = [];
-  }
-  this.CamlInfo.Joins.push(
-    XmlBuilder.Create(
-      CamlEnum.Tag.Join,
-      {
-        Type: type,
-        ListAlias: listAlias
-      },
-      eq
-    )
-  );
-
-  if (this.CamlInfo.ProjectedFields) {
-    this.CamlInfo.ProjectedFields = [];
-  }
-  this.CamlInfo.ProjectedFields.push(
-    ProjectedFields(showField, fieldName, listAlias)
-  );
 
   /**
-   * 待完善
-   * @param {string} fieldName
-   * @param {string} name
-   * @param {string} listName
+   * 返回一个内容完全相同的全新caml对象
    */
-  function ProjectedFields(fieldName, name, listName) {
-    // <Field ShowField="titel111" Type="Lookup" Name="test1" List="test1" />
-    let projectedFields = XmlBuilder.Create(CamlEnum.Tag.Field, {
-      Name: name,
-      ShowField: fieldName,
-      Type: "Lookup",
-      List: listName
+  static copy(caml: CamlBuilder) {
+    let newCaml = CamlBuilder.express();
+    newCaml.camlInfo = new CamlInfo(caml.camlInfo);
+    return newCaml;
+  };
+
+  static express() {
+    return new CamlBuilder();
+  };
+
+
+  /**
+   * 根据值的关系进行值标签生成的选择
+   */
+  static value<R extends string = RelationKey, V extends string = ValueTypeKey>(relation: R, valueType: V, value: ValueTypeMap[V] | ValueTypeMap[V][]): Value | XmlBuilder | XmlBuilder[] {
+    const v = (Array.isArray(value) ? value : [value])
+    const caseValues = v.map(v => CamlBuilder.caseValueType(valueType, v))
+    let calcValue: Partial<Record<RelationKey, () => XmlBuilder[] | XmlBuilder | string>> & {
+      default: () => XmlBuilder[] | XmlBuilder | string
+    } = {
+      [Relation.In]: () =>
+        XmlBuilder.create(
+          Tag.Values,
+          Value.None,
+          caseValues
+        ),
+      [Relation.IsNotNull]: () => Value.None,
+      [Relation.IsNull]: () => Value.None,
+      default: () => caseValues
+    };
+
+    return calcValue.hasOwnProperty(relation)
+      ? calcValue[relation as keyof typeof caseValues]()
+      : calcValue.default();
+  };
+
+  /**
+   * 根据值类型返回值标签的字符串
+   */
+  static caseValueType<V extends string = ValueTypeKey>(valueType: V, value: ValueTypeMap[V]) {
+    let property: Property = {
+      Type: valueType,
+    };
+    switch (valueType) {
+      case ValueType.DateTime: {
+        const v = value;
+        property.IncludeTimeValue = Value.True;
+        if (typeof value === "object") {
+          value = dateToString(v);
+        }
+        break;
+      }
+      case ValueType.Date: {
+        property.Type = ValueType.DateTime;
+        if (typeof value === "object") {
+          value = dateToString(value);
+        }
+        break;
+      }
+      case ValueType.Boolean: {
+        if (typeof value === "string") {
+          value = value.toLowerCase() === Value.True.toLowerCase() ? 1 : 0;
+        }
+        else {
+          value = Number(value) ? 1 : 0;
+        }
+        break;
+      }
+      case ValueType.LookupId: {
+        property.Type = ValueType.Integer;
+        if (typeof value === "object") {
+          if (value.id) {
+            value = value.id;
+          } else if (value.get_lookupId) {
+            value = value.get_lookupId();
+          }
+          else {
+            throw (value, `lookupid is not defined`);
+          }
+        }
+        break;
+      }
+      case ValueType.LookupValue: {
+        property.Type = ValueType.Text;
+        if (typeof value === "object") {
+          if (value.value) {
+            value = value.value;
+          } else if (value.get_lookupId) {
+            value = value.get_lookupValue();
+          }
+          else {
+            throw (value, `lookupvalue is not defined`);
+          }
+        }
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+
+    return XmlBuilder.create(Tag.Value, property, value);
+  };
+
+  /**
+   * 将全部的camlList用logic合并起来,两两进行递归合并
+   */
+  static mergeList<L extends string = LogicKey>(logic: L, camlList: CamlBuilder[]): CamlBuilder {
+    let newCamlList: CamlBuilder[] = [];
+    for (let i = 0; i < camlList.length - 1; i += 2) {
+      newCamlList.push(CamlBuilder.staticMerge(logic, camlList[i], camlList[i + 1]));
+    }
+    if (camlList.length % 2 !== 0) {
+      newCamlList.push(camlList[camlList.length - 1]);
+    }
+
+    return newCamlList.length > 1
+      ? CamlBuilder.mergeList(logic, newCamlList)
+      : newCamlList.length > 0
+        ? newCamlList[0]
+        : CamlBuilder.express();
+  };
+
+  /**
+   * 将两个caml合并
+   * <logic> c1 + c2 </logic>
+   */
+  static staticMerge<L extends string = LogicKey>(logic: L, camlFirst: CamlBuilder, camlSecond: CamlBuilder) {
+    let first = camlFirst.camlInfo;
+    let second = camlSecond.camlInfo;
+    let tag: string = logic;
+    let count = 1;
+    if (first.condition && second.condition) {
+      count +=
+        first.count > second.count
+          ? first.count
+          : second.count;
+    } else if (first.condition || second.condition) {
+      tag = Value.None;
+      count += first.count + second.count;
+    }
+
+    let caml = CamlBuilder.express();
+    caml.camlInfo.condition = XmlBuilder.create(tag, Value.None, [
+      first.condition,
+      second.condition
+    ]);
+    caml.camlInfo.nest(count);
+    return caml;
+  };
+
+  /**
+   * 最外层增加一个And条件
+   * <And><relation><FieldRef Name='fieldName'><Value Type='valueType'></Value></relation> ... </And>
+   * 传入数组会使用<In></In>处理
+   * @param relation   Eq,Neq,Leq,Geq,Contains,In....
+   * @param fieldName 字段内部名称
+   * @param valueType Text,LookupId,LookupValue,DateTime,Date
+   * @param value 可以是数组或字符串
+   */
+  and<R extends string = RelationKey, V extends string = ValueTypeKey>(relation: R, fieldName: string, valueType: V, value: ValueTypeMap[V] | ValueTypeMap[V][]): CamlBuilder {
+    let property: Property = {
+      Name: fieldName
+    };
+
+    if (valueType === ValueType.LookupId) {
+      property.LookupId = Value.True;
+    }
+
+    let fieldRef = XmlBuilder.create(
+      Tag.FieldRef,
+      property,
+      Value.None
+    );
+
+    if (relation === Relation.In) {
+      let camlList: CamlBuilder[] = [];
+      for (let i = 0; i < value.length; i += CamlInfo.maxIn) {
+        let valueList = value.slice(i, i + CamlInfo.maxIn);
+        let camlValue = CamlBuilder.value(relation, valueType, valueList);
+        let xml = XmlBuilder.create(relation, Value.None, [
+          fieldRef,
+          camlValue
+        ]);
+        camlList.push(CamlBuilder.express().merge(Logic.Or, xml));
+      }
+      this.merge(
+        Logic.And,
+        CamlBuilder.mergeList(Logic.Or, camlList)
+      );
+    } else {
+      let xml = XmlBuilder.create(relation, Value.None, [
+        fieldRef,
+        CamlBuilder.value(relation, valueType, value)
+      ]);
+      let child = [this.camlInfo.condition, xml];
+
+      this.camlInfo.condition = XmlBuilder.create(
+        Value.None,
+        Value.None,
+        child
+      );
+      if (this.camlInfo.count >= 1) {
+        this.camlInfo.condition = XmlBuilder.create(
+          Tag.And,
+          Value.None,
+          this.camlInfo.condition
+        );
+      }
+    }
+    this.camlInfo.nest();
+    return this;
+  };
+
+  /**
+   * 最外层增加一个Or条件
+   * <Or><relation><FieldRef Name='fieldName'><Value Type='valueType'></Value></relation> ... </Or>
+   * 传入数组会使用<In></In>处理
+   * @param relation   Eq,Neq,Leq,Geq,Contains,In....
+   * @param fieldName 字段内部名称
+   * @param valueType Text,LookupId,LookupValue,DateTime,Date
+   * @param value 可以是数组或字符串
+   */
+  or<R extends string = RelationKey, V extends string = ValueTypeKey>(relation: R, fieldName: string, valueType: V, value: ValueTypeMap[V] | ValueTypeMap[V][]) {
+    let property: Property = {
+      Name: fieldName
+    };
+
+    if (valueType === ValueType.LookupId) {
+      property.LookupId = Value.True;
+    }
+    let fieldRef = XmlBuilder.create(
+      Tag.FieldRef,
+      property,
+      Value.None
+    );
+    if (relation === Relation.In) {
+      let camlList: CamlBuilder[] = [];
+      for (let i = 0; i < value.length; i += CamlInfo.maxIn) {
+        let valueList = value.slice(i, i + CamlInfo.maxIn);
+        let camlValue = CamlBuilder.value(relation, valueType, valueList);
+        let xml = XmlBuilder.create(relation, Value.None, [
+          fieldRef,
+          camlValue
+        ]);
+        camlList.push(CamlBuilder.express().merge(Logic.Or, xml));
+      }
+      this.merge(
+        Logic.Or,
+        CamlBuilder.mergeList(Logic.Or, camlList)
+      );
+    } else if (Array.isArray(value)) {
+      let camlList = value.map(v =>
+        CamlBuilder.express().or(relation, fieldName, valueType, v)
+      );
+      this.merge(
+        Logic.Or,
+        CamlBuilder.mergeList(Logic.Or, camlList)
+      );
+    } else {
+      this.camlInfo.condition = XmlBuilder.create(
+        Value.None,
+        Value.None,
+        [
+          this.camlInfo.condition,
+          XmlBuilder.create(relation, Value.None, [
+            fieldRef,
+            CamlBuilder.value(relation, valueType, value)
+          ])
+        ]
+      );
+      if (this.camlInfo.count >= 1) {
+        this.camlInfo.condition = XmlBuilder.create(
+          Tag.Or,
+          Value.None,
+          this.camlInfo.condition
+        );
+      }
+    }
+    this.camlInfo.nest();
+    return this;
+  };
+
+  /**
+   * 设置排序,不设置按默认排序,
+   * false 从小到大倒序
+   * @param orderByList
+   */
+  orderBy(orderByList: Order[]) {
+    let orderByArray = orderByList.map(item =>
+      XmlBuilder.create(
+        Tag.FieldRef,
+        {
+          Name: item.field,
+          Ascending: item.ascend
+            ? Value.True
+            : Value.False
+        },
+        Value.None
+      )
+    );
+    this.camlInfo.orderby = XmlBuilder.create(
+      Tag.OrderBy,
+      Value.None,
+      orderByArray
+    );
+    return this;
+  };
+
+  /**
+   * 设置搜索范围,默认值设置为RecursiveAll，不调用此函数为默认搜索最顶层
+   */
+  scope(scope: ScopeKey = Scope.RecursiveAll) {
+    this.camlInfo.view.property = {
+      Scope: scope
+    };
+    return this;
+  };
+
+  /**
+   * 设置搜索条数,不调用此函数默认搜索100条,搜索全部设置为0，参数默认为0
+   */
+  rowLimit(rowLimit = 0) {
+    this.camlInfo.rowLimit = XmlBuilder.create(
+      Tag.RowLimit,
+      Value.None,
+      rowLimit
+    );
+    return this;
+  };
+
+  /**
+   * 结束caml拼接，追加Query、Where、View...
+   */
+  end() {
+    let where = XmlBuilder.create(
+      Tag.Where,
+      Value.None,
+      this.camlInfo.condition
+    );
+    let queryChildren = [where, this.camlInfo.groupBy, this.camlInfo.orderby];
+
+    let query = XmlBuilder.create(
+      Tag.Query,
+      Value.None,
+      queryChildren
+    );
+
+    let join = this.camlInfo.joins
+      ? XmlBuilder.create(
+        Tag.Joins,
+        Value.None,
+        this.camlInfo.joins
+      )
+      : this.camlInfo.joins;
+
+    let projectedFields = (this.camlInfo.projectedFields = this.camlInfo.projectedFields
+      ? XmlBuilder.create(
+        Tag.ProjectedFields,
+        Value.None,
+        this.camlInfo.projectedFields
+      )
+      : this.camlInfo.projectedFields);
+    this.camlInfo.view.children = [
+      this.camlInfo.viewFields,
+      this.camlInfo.aggregations,
+      query,
+      join,
+      projectedFields,
+      this.camlInfo.rowLimit
+    ];
+
+    this.camlInfo.condition = this.camlInfo.view;
+    return this;
+  };
+
+  /**
+   * 输出caml字符串
+   */
+  toString() {
+    return typeof this.camlInfo.condition !== "string"
+      ? this.camlInfo.condition.toString()
+      : renderChildren(this.camlInfo.condition);
+  };
+
+  /**
+   * 清空条件设置
+   */
+  clear() {
+    this.camlInfo = new CamlInfo();
+    return this;
+  };
+
+  /**
+   * 合并两个caml对象 "<logic> Condition + camlStr</logic>"
+   * @param logic And/Or
+   * @param caml caml对象或string没有end的
+   */
+  merge<L extends string = LogicKey>(logic: L, caml: string | CamlBuilder) {
+    let camlStr: string = Value.None;
+    let count = 0;
+    if (typeof caml === "string") {
+      camlStr = caml;
+    } else if (caml.camlInfo) {
+      camlStr = caml.camlInfo.condition.toString();
+      count = caml.camlInfo.count;
+    }
+    if (camlStr) {
+      this.camlInfo.nest(count);
+      if (this.camlInfo.condition) {
+        this.camlInfo.condition = XmlBuilder.create(logic, Value.None, [
+          this.camlInfo.condition,
+          camlStr
+        ]);
+      } else {
+        this.camlInfo.condition = XmlBuilder.create(
+          Value.None,
+          Value.None,
+          [camlStr]
+        );
+      }
+    }
+
+    return this;
+  };
+
+  /**
+   * 需要使用 RenderListData api
+   * @param collapse   是否聚合,聚合时按分组返回部分相关数据，不聚合时按item项返回全部字段数据，配合ViewFields可以限制返回的字段,
+   * @param groupLimit 返回的视图Row数量
+   * @param fieldName     分组字段
+   */
+  groupBy(collapse: boolean, groupLimit: number, fieldName: string) {
+    let fieldRef = XmlBuilder.create(Tag.FieldRef, {
+      Name: fieldName
     });
 
-    return projectedFields;
-  }
-  return this;
-};
-
-/**
- * 需要使用 RenderListData api
- * 对字段进行函数计算，返回 field.[type.agg] => 当前分组的函数计算值   field.[type] => 总的值
- * @param {[ { field: string, type: string } ] } aggregationList  field应用的列, type引用的函数
- */
-CamlBuilder.prototype.Aggregations = function(aggregationList) {
-  let childrenList = aggregationList.map(item => {
-    let aggregation;
-    if (Aggregations) {
-      aggregation = new Aggregations(item.field, item.type);
-    } else {
-      aggregation = {
-        Name: item.field,
-        Type: item.type
-      };
-    }
-    return XmlBuilder.Create(
-      CamlEnum.Tag.FieldRef,
-      aggregation,
-      CamlEnum.Value.None
+    this.camlInfo.groupBy = XmlBuilder.create(
+      Tag.GroupBy,
+      {
+        Collapse: collapse.toString(),
+        GroupLimit: groupLimit
+      },
+      fieldRef
     );
-  });
+    return this;
+  };
 
-  this.CamlInfo.Aggregations = XmlBuilder.Create(
-    CamlEnum.Tag.Aggregations,
-    {
-      Value: "On"
-    },
-    childrenList
-  );
+  /**
+   * 设置返回的字段
+   * @param  fieldNames
+   */
+  viewFields(fieldNames: string | string[]) {
+    let viewFields;
+    if (Array.isArray(fieldNames)) {
+      viewFields = fieldNames.map(item =>
+        XmlBuilder.create(
+          Tag.FieldRef,
+          {
+            Name: item
+          },
+          Value.None
+        )
+      );
+    } else {
+      viewFields = XmlBuilder.create(
+        Tag.FieldRef,
+        {
+          Name: fieldNames
+        },
+        Value.None
+      );
+    }
 
-  return this;
-};
+    this.camlInfo.viewFields = XmlBuilder.create(
+      Tag.ViewFields,
+      Value.None,
+      viewFields
+    );
+    return this;
+  };
 
-/**
- * 设置路径
- * @param {string} folderPath  文件夹相对路径，
- * 顶层站点 /list/folder
- * 子站点/site/list/folder
- */
-CamlBuilder.prototype.SetFolder = function(folderPath) {
-  this.CamlInfo.FolderStr = folderPath;
-  return this;
-};
+  /**
+   * TODO:
+   * 待完善
+   */
+  joins(
+    type: string,
+    listAlias: string,
+    field: string,
+    showField: string,
+    fieldName: string
+  ) {
+    let fieldList = [
+      XmlBuilder.create(
+        Tag.FieldRef,
+        {
+          Name: field,
+          RefType: "ID"
+        },
+        Value.None
+      ),
+      XmlBuilder.create(
+        Tag.FieldRef,
+        {
+          Name: "ID",
+          List: listAlias
+        },
+        Value.None
+      )
+    ];
 
-/**
- * 读取文件夹路径
- */
-CamlBuilder.prototype.GetFolder = function() {
-  return this.CamlInfo.FolderStr;
-};
+    let eq = XmlBuilder.create(Tag.Eq, Value.None, fieldList);
 
+    if (!this.camlInfo.joins) {
+      this.camlInfo.joins = [];
+    }
+    this.camlInfo.joins.push(
+      XmlBuilder.create(
+        Tag.Join,
+        {
+          Type: type,
+          ListAlias: listAlias
+        },
+        eq
+      )
+    );
+
+    if (this.camlInfo.projectedFields) {
+      this.camlInfo.projectedFields = [];
+    }
+    this.camlInfo.projectedFields.push(
+      projectedFields(showField, fieldName, listAlias)
+    );
+
+    /**
+     * 待完善
+     */
+    function projectedFields(fieldName: string, name: string, listName: string) {
+      // <Field ShowField="titel111" Type="Lookup" Name="test1" List="test1" />
+      let projectedFields = XmlBuilder.create(Tag.Field, {
+        Name: name,
+        ShowField: fieldName,
+        Type: "Lookup",
+        List: listName
+      });
+
+      return projectedFields;
+    }
+    return this;
+  };
+
+  /**
+   * 需要使用 RenderListData api
+   * 对字段进行函数计算，返回 field.[type.agg] => 当前分组的函数计算值   field.[type] => 总的值
+   * @param aggregationList  field应用的列, type引用的函数
+   */
+  aggregations(aggregationList: AggregationData[]) {
+    let childrenList = aggregationList.map(item => {
+      let aggregation = new AggregationsModal(item.field, item.type);
+      return XmlBuilder.create(
+        Tag.FieldRef,
+        aggregation as any,
+        Value.None
+      );
+    });
+
+    this.camlInfo.aggregations = XmlBuilder.create(
+      Tag.Aggregations,
+      {
+        Value: "On"
+      },
+      childrenList
+    );
+
+    return this;
+  };
+
+  /**
+   * 设置路径
+   * @param folderPath  文件夹相对路径，
+   * 顶层站点 /list/folder
+   * 子站点/site/list/folder
+   */
+  setFolder(folderPath: `/${string}`) {
+    this.camlInfo.folderStr = folderPath;
+    return this;
+  };
+
+  /**
+   * 读取文件夹路径
+   */
+  getFolder() {
+    return this.camlInfo.folderStr;
+  };
+}
 export default CamlBuilder;

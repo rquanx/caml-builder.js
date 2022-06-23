@@ -5,3 +5,5 @@ export enum Scope {
   Recursive = "Recursive",
   RecursiveAll = "RecursiveAll"
 };
+
+export type ScopeKey = keyof typeof Scope;

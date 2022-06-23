@@ -2,14 +2,14 @@ import XmlBuilder from "../xml/index";
 import { Tag } from "../builder/enum";
 
 export class CamlInfo {
-  condition: string;
+  condition: string | XmlBuilder;
   count: number;
   orderby: string;
-  rowLimit?: number;
+  rowLimit?: XmlBuilder;
   viewFields: string;
-  groupBy: string;
-  projectedFields: string;
-  joins: string;
+  groupBy?: XmlBuilder;
+  projectedFields: XmlBuilder | XmlBuilder[];
+  joins: XmlBuilder[];
   aggregations: string;
   folderStr: string;
   view: XmlBuilder;
@@ -17,18 +17,18 @@ export class CamlInfo {
   static maxNested = 160;
   static maxIn = 500
 
-  constructor(camlInfo?: CamlInfo) {
-    this.condition = camlInfo?.condition ?? "";
-    this.count = camlInfo?.count ?? 0;
-    this.orderby = camlInfo?.orderby ?? "";
-    this.rowLimit = camlInfo?.rowLimit;
-    this.viewFields = camlInfo?.viewFields ?? "";
-    this.groupBy = camlInfo?.groupBy ?? "";
-    this.projectedFields = camlInfo?.projectedFields ?? "";
-    this.joins = camlInfo?.joins ?? "";
-    this.aggregations = camlInfo?.aggregations ?? "";
-    this.folderStr = camlInfo?.folderStr ?? "";
-    this.view = camlInfo?.view ?? new XmlBuilder(Tag.View, "", "");
+  constructor(info?: CamlInfo) {
+    this.condition = info?.condition ?? "";
+    this.count = info?.count ?? 0;
+    this.orderby = info?.orderby ?? "";
+    this.rowLimit = info?.rowLimit;
+    this.viewFields = info?.viewFields ?? "";
+    this.groupBy = info?.groupBy;
+    this.projectedFields = info?.projectedFields ?? [];
+    this.joins = info?.joins ?? [];
+    this.aggregations = info?.aggregations ?? "";
+    this.folderStr = info?.folderStr ?? "";
+    this.view = info?.view ?? new XmlBuilder(Tag.View, "", "");
   }
 
   /**增加嵌套层数 */

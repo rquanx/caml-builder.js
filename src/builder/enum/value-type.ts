@@ -15,3 +15,5 @@ export enum ValueType {
   FSObjType = "FSObjType", //文件夹
   GUID = "Text" // GUID查询当普通Text查询即可
 };
+
+export type ValueTypeKey = keyof typeof ValueType;

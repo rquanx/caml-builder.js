@@ -26,3 +26,5 @@ export enum Relation {
 
   Membership = "Membership"
 };
+
+export type RelationKey = keyof typeof Relation;
