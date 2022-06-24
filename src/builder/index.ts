@@ -1,11 +1,10 @@
-import { ValueTypeKey } from './enum/value-type';
+import { ValueTypeKey, ValueTypeValue } from './enum/value-type';
 import XmlBuilder, { renderChildren } from "../xml";
 import CamlInfo from "../info";
 import { Aggregations, Value, ValueType, Logic, Relation, Scope, Tag, RelationKey, LogicKey, TagKey, ScopeKey } from "./enum";
 import AggregationsModal from "../modal/Aggregations";
 import { dateToString } from "../utils";
 import { AggregationData, Order, Property, ValueTypeMap } from "./type";
-
 export class CamlBuilder {
   camlInfo: CamlInfo;
   constructor() {
@@ -54,16 +53,21 @@ export class CamlBuilder {
   /**
    * 根据值类型返回值标签的字符串
    */
-  static caseValueType<V extends string = ValueTypeKey>(valueType: V, value: ValueTypeMap[V]) {
-    let property: Property = {
+  static caseValueType<V extends string = ValueTypeValue>(valueType: V, value: ValueTypeMap[V]) {
+    let property: Property<V | ValueTypeValue> = {
       Type: valueType,
     };
+    const v = value as unknown;
     switch (valueType) {
       case ValueType.DateTime: {
-        const v = value;
         property.IncludeTimeValue = Value.True;
-        if (typeof value === "object") {
-          value = dateToString(v);
+        if (typeof v === "object") {
+          if (v instanceof Date) {
+            value = dateToString(v);
+          }
+          else {
+            console.warn("DateTime value type only support Date object");
+          }
         }
         break;
       }
@@ -75,11 +79,11 @@ export class CamlBuilder {
         break;
       }
       case ValueType.Boolean: {
-        if (typeof value === "string") {
-          value = value.toLowerCase() === Value.True.toLowerCase() ? 1 : 0;
+        if (typeof v === "string") {
+          value = v.toLowerCase() === Value.True.toLowerCase() ? 1 : 0;
         }
         else {
-          value = Number(value) ? 1 : 0;
+          value = Number(v) ? 1 : 0;
         }
         break;
       }
@@ -197,7 +201,7 @@ export class CamlBuilder {
         let camlValue = CamlBuilder.value(relation, valueType, valueList);
         let xml = XmlBuilder.create(relation, Value.None, [
           fieldRef,
-          camlValue
+          camlValue as XmlBuilder
         ]);
         camlList.push(CamlBuilder.express().merge(Logic.Or, xml));
       }
@@ -208,7 +212,7 @@ export class CamlBuilder {
     } else {
       let xml = XmlBuilder.create(relation, Value.None, [
         fieldRef,
-        CamlBuilder.value(relation, valueType, value)
+        CamlBuilder.value(relation, valueType, value) as XmlBuilder
       ]);
       let child = [this.camlInfo.condition, xml];
 
@@ -255,7 +259,7 @@ export class CamlBuilder {
       let camlList: CamlBuilder[] = [];
       for (let i = 0; i < value.length; i += CamlInfo.maxIn) {
         let valueList = value.slice(i, i + CamlInfo.maxIn);
-        let camlValue = CamlBuilder.value(relation, valueType, valueList);
+        let camlValue = CamlBuilder.value(relation, valueType, valueList) as XmlBuilder;
         let xml = XmlBuilder.create(relation, Value.None, [
           fieldRef,
           camlValue
@@ -282,7 +286,7 @@ export class CamlBuilder {
           this.camlInfo.condition,
           XmlBuilder.create(relation, Value.None, [
             fieldRef,
-            CamlBuilder.value(relation, valueType, value)
+            CamlBuilder.value(relation, valueType, value) as XmlBuilder
           ])
         ]
       );
@@ -413,14 +417,17 @@ export class CamlBuilder {
    * @param logic And/Or
    * @param caml caml对象或string没有end的
    */
-  merge<L extends string = LogicKey>(logic: L, caml: string | CamlBuilder) {
+  merge<L extends string = LogicKey>(logic: L, caml: string | CamlBuilder | XmlBuilder) {
     let camlStr: string = Value.None;
     let count = 0;
     if (typeof caml === "string") {
       camlStr = caml;
-    } else if (caml.camlInfo) {
+    } else if (caml instanceof CamlBuilder) {
       camlStr = caml.camlInfo.condition.toString();
       count = caml.camlInfo.count;
+    }
+    else {
+      camlStr = caml.toString();
     }
     if (camlStr) {
       this.camlInfo.nest(count);

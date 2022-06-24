@@ -4,13 +4,13 @@ import { Tag } from "../builder/enum";
 export class CamlInfo {
   condition: string | XmlBuilder;
   count: number;
-  orderby: string;
+  orderby?: XmlBuilder;
   rowLimit?: XmlBuilder;
-  viewFields: string;
+  viewFields?: XmlBuilder;
   groupBy?: XmlBuilder;
   projectedFields: XmlBuilder | XmlBuilder[];
   joins: XmlBuilder[];
-  aggregations: string;
+  aggregations?: XmlBuilder;
   folderStr: string;
   view: XmlBuilder;
 
@@ -20,13 +20,13 @@ export class CamlInfo {
   constructor(info?: CamlInfo) {
     this.condition = info?.condition ?? "";
     this.count = info?.count ?? 0;
-    this.orderby = info?.orderby ?? "";
+    this.orderby = info?.orderby;
     this.rowLimit = info?.rowLimit;
-    this.viewFields = info?.viewFields ?? "";
+    this.viewFields = info?.viewFields;
     this.groupBy = info?.groupBy;
     this.projectedFields = info?.projectedFields ?? [];
     this.joins = info?.joins ?? [];
-    this.aggregations = info?.aggregations ?? "";
+    this.aggregations = info?.aggregations;
     this.folderStr = info?.folderStr ?? "";
     this.view = info?.view ?? new XmlBuilder(Tag.View, "", "");
   }

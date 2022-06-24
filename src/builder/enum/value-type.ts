@@ -16,4 +16,5 @@ export enum ValueType {
   GUID = "Text" // GUID查询当普通Text查询即可
 };
 
+export type ValueTypeValue = `${ValueType}`;
 export type ValueTypeKey = keyof typeof ValueType;

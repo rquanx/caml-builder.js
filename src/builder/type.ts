@@ -1,9 +1,9 @@
 
-import { Aggregations, Value, ValueType, Logic, Relation, Scope, Tag, ValueTypeKey, ValueKey } from "./enum";
-export type Property<T extends string = ValueTypeKey, I extends string = ValueKey, L extends string = ValueTypeKey> = {
+import { Aggregations, Value, ValueType, Logic, Relation, Scope, Tag, ValueTypeKey, ValueKey, ValueTypeValue } from "./enum";
+export type Property<T extends string = ValueTypeValue, I extends string = ValueKey> = {
   Type?: T,
   IncludeTimeValue?: I;
-  LookupId?: L;
+  LookupId?: Value;
   Name?: string;
 }
 
@@ -34,7 +34,7 @@ interface SourceValueTypeMap {
   Lookup: LookupValue;
   LookupId: LookupId;
   LookupValue: LookupValue;
-  Boolean: Value.False | Value.True
+  Boolean: 0 | 1
   Integer: number;
   Url: string;
   FSObjType: string;
