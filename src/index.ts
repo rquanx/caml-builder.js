@@ -1,5 +1,5 @@
-import Enum from "./builder/enum";
-import CamlBuilder from "./builder/index";
-
-export const CamlEnum = Enum;
-export default CamlBuilder;
+export * from "./builder/enum";
+export * from "./builder";
+export * from './modal/Aggregations';
+export * from './utils';
+export { XmlBuilder } from './xml';

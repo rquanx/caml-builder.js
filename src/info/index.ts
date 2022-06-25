@@ -8,7 +8,7 @@ export class CamlInfo {
   rowLimit?: XmlBuilder;
   viewFields?: XmlBuilder;
   groupBy?: XmlBuilder;
-  projectedFields: XmlBuilder | XmlBuilder[];
+  projectedFields: XmlBuilder[];
   joins: XmlBuilder[];
   aggregations?: XmlBuilder;
   folderStr: string;

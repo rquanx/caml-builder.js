@@ -375,11 +375,11 @@ export class CamlBuilder {
       : this.camlInfo.joins;
 
     let projectedFields = (this.camlInfo.projectedFields = this.camlInfo.projectedFields
-      ? XmlBuilder.create(
+      ? [XmlBuilder.create(
         Tag.ProjectedFields,
         Value.None,
         this.camlInfo.projectedFields
-      )
+      )]
       : this.camlInfo.projectedFields);
     this.camlInfo.view.children = [
       this.camlInfo.viewFields,

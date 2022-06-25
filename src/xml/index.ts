@@ -1,5 +1,5 @@
 export type Value = string | number | boolean | Date;
-export type Children = (XmlBuilder | string | undefined)[] | XmlBuilder | string | number | boolean | Date;
+export type Children = (XmlBuilder | string | undefined | XmlBuilder[])[] | XmlBuilder | string | number | boolean | Date;
 export type Property = Record<string, Value> | string;
 export class XmlBuilder {
 
