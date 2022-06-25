@@ -53,17 +53,16 @@ export class CamlBuilder {
   /**
    * 根据值类型返回值标签的字符串
    */
-  static caseValueType<V extends string = ValueTypeValue>(valueType: V, value: ValueTypeMap[V]) {
+  static caseValueType<V extends string = ValueTypeValue>(valueType: V, value: any) {
     let property: Property<V | ValueTypeValue> = {
       Type: valueType,
     };
-    const v = value as unknown;
     switch (valueType) {
       case ValueType.DateTime: {
         property.IncludeTimeValue = Value.True;
-        if (typeof v === "object") {
-          if (v instanceof Date) {
-            value = dateToString(v);
+        if (typeof value === "object") {
+          if (value instanceof Date) {
+            value = dateToString(value);
           }
           else {
             console.warn("DateTime value type only support Date object");
@@ -79,11 +78,11 @@ export class CamlBuilder {
         break;
       }
       case ValueType.Boolean: {
-        if (typeof v === "string") {
-          value = v.toLowerCase() === Value.True.toLowerCase() ? 1 : 0;
+        if (typeof value === "string") {
+          value = value.toLowerCase() === Value.True.toLowerCase() ? 1 : 0;
         }
         else {
-          value = Number(v) ? 1 : 0;
+          value = Number(value) ? 1 : 0;
         }
         break;
       }
@@ -96,7 +95,7 @@ export class CamlBuilder {
             value = value.get_lookupId();
           }
           else {
-            throw (value, `lookupid is not defined`);
+            throw (`${value} lookupid is not defined`);
           }
         }
         break;
@@ -110,7 +109,7 @@ export class CamlBuilder {
             value = value.get_lookupValue();
           }
           else {
-            throw (value, `lookupvalue is not defined`);
+            throw (`${value} lookupvalue is not defined`);
           }
         }
         break;

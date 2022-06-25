@@ -44,13 +44,3 @@ interface SourceValueTypeMap {
 export type ValueTypeMap = Omit<{
   [key: string]: string;
 }, keyof SourceValueTypeMap> & SourceValueTypeMap;
-
-// type UnionToIntersection<U> =
-//   (U extends U ? (x: U) => unknown : never) extends (x: infer R) => unknown
-//   ? R
-//   : never
-
-// export type ValueTypeToData<T extends keyof ValueTypeMap> =
-//   UnionToIntersection<
-//     T extends any ? ValueTypeMap[T] : never
-//   >;
