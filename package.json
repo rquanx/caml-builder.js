@@ -5,16 +5,22 @@
   "main": "index.js",
   "scripts": {
     "build": "rollup -c",
-    "test": "jest"
+    "test": "jest",
+    "b": "tsc ./src/index.ts"
   },
   "author": "rquanx",
   "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.2.2",
     "@babel/preset-env": "^7.3.1",
+    "jest": "^24.8.0",
     "rollup": "^1.1.2",
     "rollup-plugin-babel": "^4.3.2",
-    "rollup-plugin-node-resolve": "^4.0.0",
-    "jest": "^24.8.0"
+    "rollup-plugin-node-resolve": "^4.0.0"
+  },
+  "dependencies": {
+    "rollup-plugin-ts": "^3.0.2",
+    "rollup-plugin-uglify": "^6.0.4",
+    "typescript": "^4.7.4"
   }
 }
