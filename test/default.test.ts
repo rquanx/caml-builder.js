@@ -15,14 +15,6 @@ describe("Minimum requirements test", () => {
     ).toBe(`<View><Query><Where/></Query></View>`);
   })
 
-  it('none condiction with End to be empty Query', () => {
-
-    expect(
-      CamlBuilder.express()
-        .end()
-        .toString()
-    ).toBe(`<View><Query><Where/></Query></View>`);
-  })
   it('single And condiction Query', () => {
 
     expect(
