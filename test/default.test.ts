@@ -7,7 +7,6 @@ describe("Minimum requirements test", () => {
   })
 
   it('none condiction with End to be empty Query', () => {
-
     expect(
       CamlBuilder.express()
         .end()
@@ -16,7 +15,6 @@ describe("Minimum requirements test", () => {
   })
 
   it('single And condiction Query', () => {
-
     expect(
       CamlBuilder.express()
         .and(
@@ -31,8 +29,8 @@ describe("Minimum requirements test", () => {
       `<View><Query><Where><Eq><FieldRef Name='TestField' /><Value Type='Text' >test</Value></Eq></Where></Query></View>`
     );
   })
-  it('single Or condiction Query', () => {
 
+  it('single Or condiction Query', () => {
     expect(
       CamlBuilder.express()
         .or(
@@ -47,6 +45,7 @@ describe("Minimum requirements test", () => {
       `<View><Query><Where><Eq><FieldRef Name='TestField' /><Value Type='Text' >test</Value></Eq></Where></Query></View>`
     );
   })
+
   it('Two Or condiction Query', () => {
     expect(
       CamlBuilder.express()
