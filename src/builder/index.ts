@@ -1,7 +1,7 @@
 import { ValueTypeKey, ValueTypeValue } from './enum/value-type';
 import XmlBuilder, { renderChildren } from "../xml";
 import CamlInfo from "../info";
-import { Aggregations, Value, ValueType, Logic, Relation, Scope, Tag, RelationKey, LogicKey, TagKey, ScopeKey } from "./enum";
+import { Value, ValueType, Logic, Relation, Scope, Tag, RelationKey, LogicKey, ScopeKey } from "./enum";
 import AggregationsModal from "../modal/Aggregations";
 import { dateToString } from "../utils";
 import { AggregationData, Order, Property, ValueTypeMap } from "./type";
@@ -552,9 +552,9 @@ export class CamlBuilder {
     if (this.camlInfo.projectedFields) {
       this.camlInfo.projectedFields = [];
     }
-    this.camlInfo.projectedFields.push(
-      projectedFields(showField, fieldName, listAlias)
-    );
+    // this.camlInfo.projectedFields.push(
+    //   projectedFields(showField, fieldName, listAlias)
+    // );
 
     /**
      * 待完善
