@@ -514,6 +514,7 @@ export class CamlBuilder {
     showField: string,
     fieldName: string
   ) {
+    throw ("TODO");
     let fieldList = [
       XmlBuilder.create(
         Tag.FieldRef,
@@ -538,7 +539,7 @@ export class CamlBuilder {
     if (!this.camlInfo.joins) {
       this.camlInfo.joins = [];
     }
-    this.camlInfo.joins.push(
+    this.camlInfo.joins?.push(
       XmlBuilder.create(
         Tag.Join,
         {
